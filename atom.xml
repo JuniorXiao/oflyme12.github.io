@@ -1,0 +1,303 @@
+<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+
+  <title><![CDATA[JuniorXiao]]></title>
+  <link href="http://www.1world.cn/atom.xml" rel="self"/>
+  <link href="http://www.1world.cn/"/>
+  <updated>2015-07-31T20:32:00+08:00</updated>
+  <id>http://www.1world.cn/</id>
+  <author>
+    <name><![CDATA[]]></name>
+    
+  </author>
+  <generator uri="http://www.coderforart.com/">CoderForArt</generator>
+
+  
+  <entry>
+    <title type="html"><![CDATA[tableView循环利用性能优化]]></title>
+    <link href="http://www.1world.cn/14383441581519.html"/>
+    <updated>2015-07-31T20:02:38+08:00</updated>
+    <id>http://www.1world.cn/14383441581519.html</id>
+    <content type="html"><![CDATA[
+<h2 id="toc_0">tableView性能优化 - cell的循环利用方式1</h2>
+
+<pre><code class="language-objc">/**
+ *  什么时候调用：每当有一个cell进入视野范围内就会调用
+ */
+- (UITableViewCell *)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath
+{
+    // 0.重用标识
+    // 被static修饰的局部变量：只会初始化一次，在整个程序运行过程中，只有一份内存
+    static NSString *ID = @&quot;cell&quot;;
+
+    // 1.先根据cell的标识去缓存池中查找可循环利用的cell
+    UITableViewCell *cell = [tableView dequeueReusableCellWithIdentifier:ID];
+
+    // 2.如果cell为nil（缓存池找不到对应的cell）
+    if (cell == nil) {
+        cell = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleDefault reuseIdentifier:ID];
+    }
+
+    // 3.覆盖数据
+    cell.textLabel.text = [NSString stringWithFormat:@&quot;testdata - %zd&quot;, indexPath.row];
+
+    return cell;
+}
+</code></pre>
+
+<h2 id="toc_1">tableView性能优化 - cell的循环利用方式2</h2>
+
+<ul>
+<li>定义一个全局变量</li>
+</ul>
+
+<pre><code class="language-objc">// 定义重用标识
+NSString *ID = @&quot;cell&quot;;
+</code></pre>
+
+<ul>
+<li>注册某个标识对应的cell类型</li>
+</ul>
+
+<pre><code class="language-objc">// 在这个方法中注册cell
+- (void)viewDidLoad {
+    [super viewDidLoad];
+
+    // 注册某个标识对应的cell类型
+    [self.tableView registerClass:[UITableViewCell class] forCellReuseIdentifier:ID];
+}
+</code></pre>
+
+<ul>
+<li>在数据源方法中返回cell</li>
+</ul>
+
+<pre><code class="language-objc">- (UITableViewCell *)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath
+{
+    // 1.去缓存池中查找cell
+    UITableViewCell *cell = [tableView dequeueReusableCellWithIdentifier:ID];
+
+    // 2.覆盖数据
+    cell.textLabel.text = [NSString stringWithFormat:@&quot;testdata - %zd&quot;, indexPath.row];
+
+    return cell;
+}
+</code></pre>
+
+<h2 id="toc_2">tableView性能优化 - cell的循环利用方式3</h2>
+
+<ul>
+<li><p>在storyboard中设置UITableView的Dynamic Prototypes Cell<br/>
+<img src="media/14383441581519/14383447437699.jpg" alt=""/></p></li>
+<li><p>设置cell的重用标识<br/>
+<img src="media/14383441581519/14383447597100.jpg" alt=""/></p></li>
+<li><p>在代码中利用重用标识获取cell</p></li>
+</ul>
+
+<pre><code class="language-objc">// 0.重用标识
+// 被static修饰的局部变量：只会初始化一次，在整个程序运行过程中，只有一份内存
+static NSString *ID = @&quot;cell&quot;;
+
+// 1.先根据cell的标识去缓存池中查找可循环利用的cell
+UITableViewCell *cell = [tableView dequeueReusableCellWithIdentifier:ID];
+
+// 2.覆盖数据
+cell.textLabel.text = [NSString stringWithFormat:@&quot;cell - %zd&quot;, indexPath.row];
+
+return cell;
+</code></pre>
+
+<h2 id="toc_3">错误将UIViewController当做UITableViewController来用</h2>
+
+<p><img src="media/14383441581519/14383448112645.jpg" alt=""/></p>
+
+<h2 id="toc_4">UITableView的常见设置</h2>
+
+<pre><code class="language-objc">// 分割线颜色
+self.tableView.separatorColor = [UIColor redColor];
+
+// 隐藏分割线
+self.tableView.separatorStyle = UITableViewCellSeparatorStyleNone;
+
+// tableView有数据的时候才需要分割线
+// 开发小技巧:快速取消分割线
+ self.tableView.tableFooterView = [[UIView alloc] init];
+</code></pre>
+
+<h2 id="toc_5">UITableViewCell的常见设置</h2>
+
+<pre><code class="language-objc">// 取消选中的样式(常用) 让当前 cell 按下无反应
+cell.selectionStyle = UITableViewCellSelectionStyleNone;
+
+// 设置选中的背景色
+UIView *selectedBackgroundView = [[UIView alloc] init];
+selectedBackgroundView.backgroundColor = [UIColor redColor];
+cell.selectedBackgroundView = selectedBackgroundView;
+
+// 设置默认的背景色
+cell.backgroundColor = [UIColor blueColor];
+
+// 设置默认的背景色
+UIView *backgroundView = [[UIView alloc] init];
+backgroundView.backgroundColor = [UIColor greenColor];
+cell.backgroundView = backgroundView;
+
+// backgroundView的优先级 &gt; backgroundColor
+// 设置指示器
+//    cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
+cell.accessoryView = [[UISwitch alloc] init];
+</code></pre>
+
+<h2 id="toc_6">自定义cell</h2>
+
+<ul>
+<li><p><code>等高的cell</code></p>
+
+<ul>
+<li><p><code>storyboard自定义cell</code></p>
+
+<ul>
+<li>1.创建一个继承自UITableViewCell的子类，比如XMGDealCell<br>
+<img src="media/14383441581519/14383448366970.jpg" alt=""/></li>
+<li><p>2.在storyboard中</p>
+
+<ul>
+<li><p>往cell里面增加需要用到的子控件<br><br/>
+<img src="media/14383441581519/14383448600318.jpg" alt=""/></p></li>
+<li><p>设置cell的重用标识<br><br/>
+<img src="media/14383441581519/14383448716391.jpg" alt=""/></p></li>
+<li><p>设置cell的class为XMGDealCell<br><br/>
+<img src="media/14383441581519/14383448861020.jpg" alt=""/></p></li>
+</ul></li>
+<li><p>3.在控制器中</p>
+
+<ul>
+<li>利用重用标识找到cell</li>
+<li>给cell传递模型数据<br>
+<img src="media/14383441581519/14383449009333.jpg" alt=""/></li>
+</ul></li>
+<li><p>4.在XMGDealCell中</p>
+
+<ul>
+<li><p>将storyboard中的子控件连线到类扩展中<br><br/>
+<img src="media/14383441581519/14383449125564.jpg" alt=""/></p></li>
+<li><p>需要提供一个模型属性，重写模型的set方法，在这个方法中设置模型数据到子控件上<br><br/>
+<img src="media/14383441581519/14383449730957.jpg" alt=""/></p></li>
+</ul>
+
+<p><img src="media/14383441581519/14383449364453.jpg" alt=""/></p></li>
+</ul></li>
+<li><p><code>xib自定义cell</code></p>
+
+<ul>
+<li>1.创建一个继承自UITableViewCell的子类，比如XMGDealCell<br></li>
+<li>2.创建一个xib文件（文件名建议跟cell的类名一样），比如XMGDealCell.xib
+
+<ul>
+<li>拖拽一个UITableViewCell出来</li>
+<li>修改cell的class为XMGDealCell</li>
+<li><strong>设置cell的重用标识</strong></li>
+<li>往cell中添加需要用到的子控件</li>
+</ul></li>
+<li>3.在控制器中
+
+<ul>
+<li><strong>利用registerNib...方法注册xib文件</strong></li>
+<li>利用重用标识找到cell（如果没有注册xib文件，就需要手动去加载xib文件）</li>
+<li>给cell传递模型数据<br></li>
+</ul></li>
+<li>4.在XMGDealCell中
+
+<ul>
+<li>将xib中的子控件连线到类扩展中</li>
+<li>需要提供一个模型属性，重写模型的set方法，在这个方法中设置模型数据到子控件上</li>
+<li>也可以将创建获得cell的代码封装起来（比如cellWithTableView:方法）</li>
+</ul></li>
+</ul></li>
+<li><p><code>代码自定义cell(使用frame)</code></p>
+
+<ul>
+<li>1.创建一个继承自UITableViewCell的子类，比如XMGDealCell
+
+<ul>
+<li>在initWithStyle:reuseIdentifier:方法中
+
+<ul>
+<li>添加子控件</li>
+<li>设置子控件的初始化属性（比如文字颜色、字体）</li>
+</ul></li>
+<li>在layoutSubviews方法中设置子控件的frame</li>
+<li>需要提供一个模型属性，重写模型的set方法，在这个方法中设置模型数据到子控件</li>
+</ul></li>
+<li>2.在控制器中
+
+<ul>
+<li>利用registerClass...方法注册XMGDealCell类</li>
+<li>利用重用标识找到cell（如果没有注册类，就需要手动创建cell）</li>
+<li>给cell传递模型数据</li>
+<li>也可以将创建获得cell的代码封装起来（比如cellWithTableView:方法）</li>
+</ul></li>
+</ul></li>
+<li><p><code>代码自定义cell(使用autolayout)</code></p>
+
+<ul>
+<li>1.创建一个继承自UITableViewCell的子类，比如XMGDealCell
+
+<ul>
+<li>在initWithStyle:reuseIdentifier:方法中
+
+<ul>
+<li>添加子控件</li>
+<li>添加子控件的约束（建议使用<code>Masonry</code>）</li>
+<li>设置子控件的初始化属性（比如文字颜色、字体）</li>
+</ul></li>
+<li>需要提供一个模型属性，重写模型的set方法，在这个方法中设置模型数据到子控件</li>
+</ul></li>
+<li>2.在控制器中
+
+<ul>
+<li>利用registerClass...方法注册XMGDealCell类</li>
+<li>利用重用标识找到cell（如果没有注册类，就需要手动创建cell）</li>
+<li>给cell传递模型数据</li>
+<li>也可以将创建获得cell的代码封装起来（比如cellWithTableView:方法）</li>
+</ul></li>
+</ul></li>
+</ul></li>
+<li><p>非等高的cell</p>
+
+<ul>
+<li><p>xib自定义cell</p></li>
+<li><p>storyboard自定义cell</p></li>
+<li><p>代码自定义cell（frame）</p></li>
+<li><p>代码自定义cell（Autolayout）</p></li>
+</ul></li>
+</ul>
+
+]]></content>
+  </entry>
+  
+  <entry>
+    <title type="html"><![CDATA[Launchpad图标出错，恢复Launchpad]]></title>
+    <link href="http://www.1world.cn/14383439394921.html"/>
+    <updated>2015-07-31T19:58:59+08:00</updated>
+    <id>http://www.1world.cn/14383439394921.html</id>
+    <content type="html"><![CDATA[
+<h2 id="toc_0">Launchpad图标出错，恢复Launchpad</h2>
+
+<ul>
+<li><p>想要恢复Launchpad，你需要开启终端应用（位于应用程序/终端），然后输入如下命令：<br/>
+<strong><code>defaults write com.apple.dock ResetLaunchPad -bool true; killall Dock</code></strong></p></li>
+<li><p>输入完成并点击回车之后，你就会发现Launchpad已经恢复到了原始状态：苹果官方应用在首个页面，第三方应用在第二页面，而你之前所建立的文件夹会全部消失。<br/>
+值得注意的是，该命令并不会将你的应用从Launchpad中移除，它的作用只是恢复初始的文件夹结构，并移除自定义的文件夹和应用排序。</p></li>
+</ul>
+
+<h2 id="toc_1">修改系统是否显示隐藏文件</h2>
+
+<ul>
+<li><code>defaults write com.apple.finder AppleShowAllFiles -bool true</code></li>
+</ul>
+
+]]></content>
+  </entry>
+  
+</feed>
